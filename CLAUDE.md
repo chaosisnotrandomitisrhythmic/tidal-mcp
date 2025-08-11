@@ -187,7 +187,7 @@ Add to Claude Desktop config file:
 {
   "mcpServers": {
     "tidal-mcp": {
-      "command": "uv",
+      "command": "/full/path/to/uv",
       "args": [
         "--directory", "/path/to/tidal-mcp",
         "run", "tidal-mcp"
@@ -195,6 +195,11 @@ Add to Claude Desktop config file:
     }
   }
 }
+```
+
+**IMPORTANT**: Claude Desktop requires the full path to `uv` because it doesn't inherit your shell's PATH. Find your uv path with:
+```bash
+which uv  # Usually /Users/username/.local/bin/uv on macOS
 ```
 
 ## Common Use Cases
