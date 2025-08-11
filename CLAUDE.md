@@ -310,6 +310,52 @@ npx @modelcontextprotocol/inspector uv run tidal-mcp
 #    - Verify playlist contents
 ```
 
+## TODO: Missing Playlist Editing Features
+
+Based on testing (2025-08-11), the following playlist editing capabilities need implementation:
+
+### High Priority Features
+These are essential for basic playlist management:
+
+1. **`remove_tracks_from_playlist`**
+   - Parameters: `playlist_id`, `track_ids[]` or `positions[]`
+   - Remove specific tracks by ID or position
+   - Critical for playlist curation
+
+2. **`reorder_playlist_tracks`**
+   - Parameters: `playlist_id`, `from_position`, `to_position`
+   - Move tracks within playlist
+   - Essential for organizing playlists
+
+3. **`insert_tracks_at_position`**
+   - Parameters: `playlist_id`, `track_ids[]`, `position`
+   - Insert tracks at specific position
+   - Currently only appends to end
+
+### Medium Priority Features
+
+4. **`update_playlist_details`**
+   - Parameters: `playlist_id`, `name`, `description`, `public`
+   - Update playlist metadata
+   - Allow renaming and description changes
+
+5. **`delete_playlist`**
+   - Parameters: `playlist_id`
+   - Permanently delete a playlist
+   - Clean up unwanted playlists
+
+6. **`clear_playlist`**
+   - Parameters: `playlist_id`
+   - Remove all tracks while preserving playlist
+   - Useful for refreshing content
+
+### Implementation Notes
+- Check tidalapi library capabilities for each feature
+- Maintain consistent error handling pattern
+- Test each feature with MCP Inspector before release
+- Consider batch operations for efficiency
+- Preserve the single-file architecture if possible
+
 ## Future Enhancements
 
 When adding features, maintain the minimalist approach:

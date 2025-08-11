@@ -142,6 +142,27 @@ echo '{"jsonrpc": "2.0", "method": "initialize", "params": {"protocolVersion": "
 npx @modelcontextprotocol/inspector uv run tidal-mcp
 ```
 
+## TODO: Missing Playlist Editing Features
+
+Based on testing (2025-08-11), the following playlist editing capabilities are not yet implemented:
+
+### High Priority
+- **Remove tracks from playlist** - Remove specific tracks by ID or position
+- **Reorder playlist tracks** - Move tracks within a playlist
+- **Insert tracks at position** - Add tracks at specific positions (currently only appends)
+
+### Medium Priority  
+- **Update playlist details** - Edit playlist name, description, or privacy settings
+- **Delete playlist** - Permanently delete a playlist
+- **Clear playlist** - Remove all tracks from a playlist
+
+### Low Priority
+- **Duplicate playlist** - Create a copy of an existing playlist
+- **Merge playlists** - Combine tracks from multiple playlists
+- **Playlist collaboration** - Share editing permissions with other users
+
+These features would require extending the TIDAL API integration in `server.py`. The current implementation provides basic functionality (create, add tracks, view) but lacks advanced editing capabilities needed for full playlist management.
+
 ## Requirements
 
 - Python 3.10+
