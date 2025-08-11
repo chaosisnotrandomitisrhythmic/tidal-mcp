@@ -1,0 +1,23 @@
+[project]
+name = "tidal-mcp"
+version = "1.0.0"
+description = "Simplified TIDAL MCP Server - Music search and playlist management"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp[cli]>=1.6.0",
+    "tidalapi>=0.8.3",
+]
+
+[project.scripts]
+tidal-mcp = "tidal_mcp.server:mcp.run"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"
