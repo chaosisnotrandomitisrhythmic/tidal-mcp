@@ -11,11 +11,8 @@ from typing import List, Optional
 import tidalapi
 from mcp.server.fastmcp import FastMCP
 
-# Initialize MCP server with metadata
-mcp = FastMCP(
-    name="TIDAL MCP",
-    description="MCP server for TIDAL music streaming service integration",
-)
+# Initialize MCP server
+mcp = FastMCP(name="TIDAL MCP")
 
 # Session management - use project root directory
 PROJECT_ROOT = Path(__file__).parent.parent.parent  # Navigate up to project root
