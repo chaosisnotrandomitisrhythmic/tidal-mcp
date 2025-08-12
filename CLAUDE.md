@@ -316,97 +316,57 @@ npx @modelcontextprotocol/inspector uv run tidal-mcp
 #    - Verify playlist contents
 ```
 
-## TODO: Missing Playlist Editing Features
+## TODO: Essential Playlist Features
 
-Based on testing (2025-08-11), the following playlist editing capabilities need implementation:
+For single-user use, these playlist editing features would be genuinely useful:
 
-### High Priority Features
-These are essential for basic playlist management:
+### Features Worth Implementing
 
 1. **`remove_tracks_from_playlist`**
    - Parameters: `playlist_id`, `track_ids[]` or `positions[]`
    - Remove specific tracks by ID or position
-   - Critical for playlist curation
+   - Essential for playlist curation
 
 2. **`reorder_playlist_tracks`**
    - Parameters: `playlist_id`, `from_position`, `to_position`
    - Move tracks within playlist
-   - Essential for organizing playlists
+   - Important for organizing playlists
 
-3. **`insert_tracks_at_position`**
-   - Parameters: `playlist_id`, `track_ids[]`, `position`
-   - Insert tracks at specific position
-   - Currently only appends to end
-
-### Medium Priority Features
-
-4. **`update_playlist_details`**
-   - Parameters: `playlist_id`, `name`, `description`, `public`
+3. **`update_playlist_details`**
+   - Parameters: `playlist_id`, `name`, `description`
    - Update playlist metadata
-   - Allow renaming and description changes
+   - Basic renaming functionality
 
-5. **`delete_playlist`**
+4. **`delete_playlist`**
    - Parameters: `playlist_id`
    - Permanently delete a playlist
-   - Clean up unwanted playlists
-
-6. **`clear_playlist`**
-   - Parameters: `playlist_id`
-   - Remove all tracks while preserving playlist
-   - Useful for refreshing content
+   - Basic cleanup functionality
 
 ### Implementation Notes
-- Check tidalapi library capabilities for each feature
-- Maintain consistent error handling pattern
-- Test each feature with MCP Inspector before release
-- Consider batch operations for efficiency
+- Keep synchronous implementation (no async needed for single-user)
+- Maintain current simple error handling pattern
+- Test with MCP Inspector before use
 - Preserve the single-file architecture if possible
 
-## Future Enhancements
+## Design Principles for Single-User Use
 
-When adding features, maintain the minimalist approach:
-- Add tools only for core use cases
-- Keep dependencies minimal
-- Maintain direct TIDAL API integration
-- Preserve single-file architecture if possible
-- Always test with MCP Inspector before release
+This project is optimized for personal use and intentionally avoids overengineering:
 
-### FastMCP Best Practices Improvements
+### What We Keep Simple
+- ✅ **Synchronous operations** - No async complexity needed for single-user
+- ✅ **Global session management** - Works perfectly for personal use
+- ✅ **Direct TIDAL API integration** - No unnecessary abstraction layers
+- ✅ **Structured Output Schemas** - Pydantic models already implemented
+- ✅ **Minimal dependencies** - Only `mcp[cli]` and `tidalapi`
+- ✅ **Single-file architecture** - Easy to understand and maintain
 
-Based on FastMCP 2.11+ best practices analysis, consider these enhancements:
-
-1. **Async Operations**
-   - Convert all tools to async functions for better performance
-   - Leverage async capabilities of tidalapi where available
-   - Improves concurrent request handling
-
-2. **Structured Output Schemas** ✅ **COMPLETED**
-   - Implemented Pydantic models for type-safe responses
-   - All tools now return structured data models
-   - Models separated into `models.py` for better organization
-   - Includes: Track, TrackList, Playlist, PlaylistList, PlaylistTracks, CreatePlaylistResult, AddTracksResult, AuthResult, ErrorResult
-
-3. **Context State Management**
-   - Use FastMCP's Context for session management instead of global variables
-   - Enables better state isolation between requests
-   - More robust for multi-user scenarios
-   ```python
-   from fastmcp import Context
-   
-   @mcp.tool()
-   async def login(context: Context) -> dict:
-       context.state["session"] = session
-   ```
-
-4. **Middleware Integration**
-   - Add logging middleware for debugging (stderr only)
-   - Consider rate limiting middleware for API protection
-   - Authentication middleware for enhanced security
-
-5. **Environment Configuration**
-   - Add settings support for configurable options
-   - Use environment variables for API keys if needed
-   - Support different environments (dev/prod)
+### What We Intentionally Avoid
+- ❌ Async/await complexity (not needed for single-user)
+- ❌ Complex state management (global session works fine)
+- ❌ Middleware layers (unnecessary for personal use)
+- ❌ Environment configurations (hardcoded settings are fine)
+- ❌ Extensive testing suites (manual testing sufficient)
+- ❌ Performance optimizations (not needed at this scale)
 
 ## Code Style
 

@@ -143,44 +143,29 @@ echo '{"jsonrpc": "2.0", "method": "initialize", "params": {"protocolVersion": "
 npx @modelcontextprotocol/inspector uv run tidal-mcp
 ```
 
-## TODO: Missing Playlist Editing Features
+## TODO: Essential Playlist Features
 
-Based on testing (2025-08-11), the following playlist editing capabilities are not yet implemented:
+The following playlist editing features would enhance the single-user experience:
 
-### High Priority
+### Features to Implement
 - **Remove tracks from playlist** - Remove specific tracks by ID or position
-- **Reorder playlist tracks** - Move tracks within a playlist
-- **Insert tracks at position** - Add tracks at specific positions (currently only appends)
-
-### Medium Priority  
-- **Update playlist details** - Edit playlist name, description, or privacy settings
+- **Reorder playlist tracks** - Move tracks within a playlist  
+- **Update playlist details** - Edit playlist name and description
 - **Delete playlist** - Permanently delete a playlist
-- **Clear playlist** - Remove all tracks from a playlist
 
-### Low Priority
-- **Duplicate playlist** - Create a copy of an existing playlist
-- **Merge playlists** - Combine tracks from multiple playlists
-- **Playlist collaboration** - Share editing permissions with other users
+These features would require extending the TIDAL API integration in `server.py`. The current implementation provides basic functionality (create, add tracks, view) which works well for most use cases.
 
-These features would require extending the TIDAL API integration in `server.py`. The current implementation provides basic functionality (create, add tracks, view) but lacks advanced editing capabilities needed for full playlist management.
+## Design Philosophy
 
-## TODO: FastMCP Best Practices Improvements
+This project intentionally keeps things simple for single-user use:
 
-The following enhancements would align the server with FastMCP 2.11+ best practices:
+- ✅ **Synchronous operations** - Simple and reliable, no async complexity needed
+- ✅ **Global session management** - Works perfectly for single-user scenarios
+- ✅ **Direct API integration** - No unnecessary abstraction layers
+- ✅ **Structured output schemas** - Pydantic models for type-safe responses (COMPLETED)
+- ✅ **Minimal dependencies** - Only essential packages included
 
-### Code Architecture
-- ✅ **Structured Output Schemas** - Use Pydantic models for type-safe responses (COMPLETED)
-- **Async Operations** - Convert tools to async functions for better performance
-- **Context State Management** - Replace global session with FastMCP Context
-- **Middleware Support** - Add logging, rate limiting, or auth middleware
-- **Environment Configuration** - Support settings and environment variables
-
-### Implementation Quality
-- **Error Handling** - Implement more granular error types and responses
-- **Input Validation** - Add comprehensive parameter validation
-- **Testing Suite** - Create unit and integration tests
-- **Documentation** - Add API documentation and type hints
-- **Performance** - Optimize for concurrent requests and caching
+The current architecture is optimized for personal use and avoids overengineering.
 
 ## Requirements
 
