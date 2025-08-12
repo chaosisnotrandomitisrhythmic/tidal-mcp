@@ -18,7 +18,8 @@ tidal-mcp/
 └── src/
     └── tidal_mcp/
         ├── __init__.py      # Package initialization
-        └── server.py        # Complete MCP server implementation
+        ├── models.py        # Pydantic models for structured outputs
+        └── server.py        # MCP server implementation
 ```
 
 ## Key Implementation Details
@@ -145,26 +146,27 @@ def ensure_authenticated() -> bool:
 
 ### Error Handling Pattern
 ```python
+from .models import ErrorResult, TrackList
+
 @mcp.tool()
-def tool_name(param: str) -> dict:
+def tool_name(param: str) -> TrackList | ErrorResult:
     # Always check authentication first
     if not ensure_authenticated():
-        return {
-            "status": "error",
-            "message": "Not authenticated. Please run the 'login' tool first.",
-        }
+        return ErrorResult(
+            message="Not authenticated. Please run the 'login' tool first."
+        )
     
     try:
         # Tool logic here
-        return {
-            "status": "success",
-            "data": result
-        }
+        return TrackList(
+            status="success",
+            tracks=tracks,
+            count=len(tracks)
+        )
     except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Operation failed: {str(e)}"
-        }
+        return ErrorResult(
+            message=f"Operation failed: {str(e)}"
+        )
 ```
 
 ### Data Formatting
@@ -378,19 +380,11 @@ Based on FastMCP 2.11+ best practices analysis, consider these enhancements:
    - Leverage async capabilities of tidalapi where available
    - Improves concurrent request handling
 
-2. **Structured Output Schemas**
-   - Implement Pydantic models for type-safe responses
-   - Define output schemas for each tool
-   - Enables better client-side type checking and validation
-   ```python
-   from pydantic import BaseModel
-   
-   class TrackInfo(BaseModel):
-       id: str
-       title: str
-       artist: str
-       # ... etc
-   ```
+2. **Structured Output Schemas** ✅ **COMPLETED**
+   - Implemented Pydantic models for type-safe responses
+   - All tools now return structured data models
+   - Models separated into `models.py` for better organization
+   - Includes: Track, TrackList, Playlist, PlaylistList, PlaylistTracks, CreatePlaylistResult, AddTracksResult, AuthResult, ErrorResult
 
 3. **Context State Management**
    - Use FastMCP's Context for session management instead of global variables

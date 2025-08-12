@@ -6,15 +6,29 @@ Clean, minimal implementation with direct TIDAL API integration
 
 import webbrowser
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 import tidalapi
 from mcp.server.fastmcp import FastMCP
 
+# Import all models from the separate models module
+from .models import (
+    Track,
+    TrackList,
+    Playlist,
+    PlaylistList,
+    PlaylistTracks,
+    CreatePlaylistResult,
+    AddTracksResult,
+    AuthResult,
+    ErrorResult,
+)
+
+
 # Initialize MCP server with metadata
 mcp = FastMCP(
     name="TIDAL MCP",
-    instructions="MCP server for TIDAL music streaming service integration. Provides tools for searching music, managing playlists, and accessing your TIDAL library."
+    instructions="MCP server for TIDAL music streaming service integration. Provides tools for searching music, managing playlists, and accessing your TIDAL library.",
 )
 
 # Session management - use project root directory
@@ -33,7 +47,7 @@ def ensure_authenticated() -> bool:
 
 
 @mcp.tool()
-def login() -> dict:
+def login() -> AuthResult:
     """
     Authenticate with TIDAL using OAuth browser flow.
     Opens browser automatically for secure login.
@@ -43,11 +57,11 @@ def login() -> dict:
     """
     # Check if already authenticated
     if ensure_authenticated():
-        return {
-            "status": "success",
-            "message": "Already authenticated with TIDAL",
-            "authenticated": True,
-        }
+        return AuthResult(
+            status="success",
+            message="Already authenticated with TIDAL",
+            authenticated=True,
+        )
 
     try:
         # Start OAuth flow
@@ -67,27 +81,25 @@ def login() -> dict:
         # Verify and save session
         if session.check_login():
             session.save_session_to_file(SESSION_FILE)
-            return {
-                "status": "success",
-                "message": "Successfully authenticated with TIDAL",
-                "authenticated": True,
-            }
+            return AuthResult(
+                status="success",
+                message="Successfully authenticated with TIDAL",
+                authenticated=True,
+            )
         else:
-            return {
-                "status": "error",
-                "message": "Authentication failed",
-                "authenticated": False,
-            }
+            return AuthResult(
+                status="error", message="Authentication failed", authenticated=False
+            )
     except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Authentication error: {str(e)}",
-            "authenticated": False,
-        }
+        return AuthResult(
+            status="error",
+            message=f"Authentication error: {str(e)}",
+            authenticated=False,
+        )
 
 
 @mcp.tool()
-def search_tracks(query: str, limit: int = 10) -> dict:
+def search_tracks(query: str, limit: int = 10) -> TrackList | ErrorResult:
     """
     Search for tracks on TIDAL.
 
@@ -99,10 +111,9 @@ def search_tracks(query: str, limit: int = 10) -> dict:
         List of tracks with id, title, artist, album, and duration
     """
     if not ensure_authenticated():
-        return {
-            "status": "error",
-            "message": "Not authenticated. Please run the 'login' tool first.",
-        }
+        return ErrorResult(
+            message="Not authenticated. Please run the 'login' tool first."
+        )
 
     try:
         # Perform search
@@ -113,28 +124,25 @@ def search_tracks(query: str, limit: int = 10) -> dict:
         tracks = []
         for track in results.get("tracks", []):
             tracks.append(
-                {
-                    "id": str(track.id),
-                    "title": track.name,
-                    "artist": track.artist.name if track.artist else "Unknown Artist",
-                    "album": track.album.name if track.album else "Unknown Album",
-                    "duration_seconds": track.duration,
-                    "url": f"https://tidal.com/browse/track/{track.id}",
-                }
+                Track(
+                    id=str(track.id),
+                    title=track.name,
+                    artist=track.artist.name if track.artist else "Unknown Artist",
+                    album=track.album.name if track.album else "Unknown Album",
+                    duration_seconds=track.duration,
+                    url=f"https://tidal.com/browse/track/{track.id}",
+                )
             )
 
-        return {
-            "status": "success",
-            "query": query,
-            "count": len(tracks),
-            "tracks": tracks,
-        }
+        return TrackList(
+            status="success", query=query, count=len(tracks), tracks=tracks
+        )
     except Exception as e:
-        return {"status": "error", "message": f"Search failed: {str(e)}"}
+        return ErrorResult(message=f"Search failed: {str(e)}")
 
 
 @mcp.tool()
-def get_favorites(limit: int = 20) -> dict:
+def get_favorites(limit: int = 20) -> TrackList | ErrorResult:
     """
     Get user's favorite tracks from TIDAL.
 
@@ -145,10 +153,9 @@ def get_favorites(limit: int = 20) -> dict:
         List of favorite tracks
     """
     if not ensure_authenticated():
-        return {
-            "status": "error",
-            "message": "Not authenticated. Please run the 'login' tool first.",
-        }
+        return ErrorResult(
+            message="Not authenticated. Please run the 'login' tool first."
+        )
 
     try:
         favorites = session.user.favorites.tracks(limit=limit)
@@ -156,23 +163,25 @@ def get_favorites(limit: int = 20) -> dict:
         tracks = []
         for track in favorites:
             tracks.append(
-                {
-                    "id": str(track.id),
-                    "title": track.name,
-                    "artist": track.artist.name if track.artist else "Unknown Artist",
-                    "album": track.album.name if track.album else "Unknown Album",
-                    "duration_seconds": track.duration,
-                    "url": f"https://tidal.com/browse/track/{track.id}",
-                }
+                Track(
+                    id=str(track.id),
+                    title=track.name,
+                    artist=track.artist.name if track.artist else "Unknown Artist",
+                    album=track.album.name if track.album else "Unknown Album",
+                    duration_seconds=track.duration,
+                    url=f"https://tidal.com/browse/track/{track.id}",
+                )
             )
 
-        return {"status": "success", "count": len(tracks), "tracks": tracks}
+        return TrackList(status="success", count=len(tracks), tracks=tracks)
     except Exception as e:
-        return {"status": "error", "message": f"Failed to get favorites: {str(e)}"}
+        return ErrorResult(message=f"Failed to get favorites: {str(e)}")
 
 
 @mcp.tool()
-def create_playlist(name: str, description: str = "") -> dict:
+def create_playlist(
+    name: str, description: str = ""
+) -> CreatePlaylistResult | ErrorResult:
     """
     Create a new playlist in your TIDAL account.
 
@@ -184,32 +193,33 @@ def create_playlist(name: str, description: str = "") -> dict:
         Created playlist information including ID and URL
     """
     if not ensure_authenticated():
-        return {
-            "status": "error",
-            "message": "Not authenticated. Please run the 'login' tool first.",
-        }
+        return ErrorResult(
+            message="Not authenticated. Please run the 'login' tool first."
+        )
 
     try:
         # Create playlist
         playlist = session.user.create_playlist(name, description)
 
-        return {
-            "status": "success",
-            "playlist": {
-                "id": str(playlist.id),
-                "name": playlist.name,
-                "description": playlist.description or "",
-                "track_count": 0,
-                "url": f"https://tidal.com/browse/playlist/{playlist.id}",
-            },
-            "message": f"Created playlist '{name}'",
-        }
+        return CreatePlaylistResult(
+            status="success",
+            playlist=Playlist(
+                id=str(playlist.id),
+                name=playlist.name,
+                description=playlist.description or "",
+                track_count=0,
+                url=f"https://tidal.com/browse/playlist/{playlist.id}",
+            ),
+            message=f"Created playlist '{name}'",
+        )
     except Exception as e:
-        return {"status": "error", "message": f"Failed to create playlist: {str(e)}"}
+        return ErrorResult(message=f"Failed to create playlist: {str(e)}")
 
 
 @mcp.tool()
-def add_tracks_to_playlist(playlist_id: str, track_ids: List[str]) -> dict:
+def add_tracks_to_playlist(
+    playlist_id: str, track_ids: List[str]
+) -> AddTracksResult | ErrorResult:
     """
     Add tracks to an existing playlist.
 
@@ -221,19 +231,15 @@ def add_tracks_to_playlist(playlist_id: str, track_ids: List[str]) -> dict:
         Success status and number of tracks added
     """
     if not ensure_authenticated():
-        return {
-            "status": "error",
-            "message": "Not authenticated. Please run the 'login' tool first.",
-        }
+        return ErrorResult(
+            message="Not authenticated. Please run the 'login' tool first."
+        )
 
     try:
         # Get the playlist
         playlist = session.playlist(playlist_id)
         if not playlist:
-            return {
-                "status": "error",
-                "message": f"Playlist with ID '{playlist_id}' not found",
-            }
+            return ErrorResult(message=f"Playlist with ID '{playlist_id}' not found")
 
         # Convert track IDs to integers (TIDAL API expects integers)
         track_ids_int = [int(track_id) for track_id in track_ids]
@@ -242,24 +248,24 @@ def add_tracks_to_playlist(playlist_id: str, track_ids: List[str]) -> dict:
         success = playlist.add(track_ids_int)
 
         if success:
-            return {
-                "status": "success",
-                "message": f"Added {len(track_ids)} tracks to playlist '{playlist.name}'",
-                "playlist_id": playlist_id,
-                "playlist_name": playlist.name,
-                "tracks_added": len(track_ids),
-                "playlist_url": f"https://tidal.com/browse/playlist/{playlist_id}",
-            }
+            return AddTracksResult(
+                status="success",
+                message=f"Added {len(track_ids)} tracks to playlist '{playlist.name}'",
+                playlist_id=playlist_id,
+                playlist_name=playlist.name,
+                tracks_added=len(track_ids),
+                playlist_url=f"https://tidal.com/browse/playlist/{playlist_id}",
+            )
         else:
-            return {"status": "error", "message": "Failed to add tracks to playlist"}
+            return ErrorResult(message="Failed to add tracks to playlist")
     except ValueError as e:
-        return {"status": "error", "message": f"Invalid track ID format: {str(e)}"}
+        return ErrorResult(message=f"Invalid track ID format: {str(e)}")
     except Exception as e:
-        return {"status": "error", "message": f"Failed to add tracks: {str(e)}"}
+        return ErrorResult(message=f"Failed to add tracks: {str(e)}")
 
 
 @mcp.tool()
-def get_user_playlists(limit: int = 20) -> dict:
+def get_user_playlists(limit: int = 20) -> PlaylistList | ErrorResult:
     """
     Get list of user's playlists from TIDAL.
 
@@ -270,10 +276,9 @@ def get_user_playlists(limit: int = 20) -> dict:
         List of user's playlists with ID, name, description, and track count
     """
     if not ensure_authenticated():
-        return {
-            "status": "error",
-            "message": "Not authenticated. Please run the 'login' tool first.",
-        }
+        return ErrorResult(
+            message="Not authenticated. Please run the 'login' tool first."
+        )
 
     try:
         playlists = session.user.playlists(limit=limit)
@@ -281,26 +286,26 @@ def get_user_playlists(limit: int = 20) -> dict:
         playlist_list = []
         for playlist in playlists:
             playlist_list.append(
-                {
-                    "id": str(playlist.id),
-                    "name": playlist.name,
-                    "description": playlist.description or "",
-                    "track_count": getattr(playlist, "num_tracks", 0),
-                    "url": f"https://tidal.com/browse/playlist/{playlist.id}",
-                }
+                Playlist(
+                    id=str(playlist.id),
+                    name=playlist.name,
+                    description=playlist.description or "",
+                    track_count=getattr(playlist, "num_tracks", 0),
+                    url=f"https://tidal.com/browse/playlist/{playlist.id}",
+                )
             )
 
-        return {
-            "status": "success",
-            "count": len(playlist_list),
-            "playlists": playlist_list,
-        }
+        return PlaylistList(
+            status="success", count=len(playlist_list), playlists=playlist_list
+        )
     except Exception as e:
-        return {"status": "error", "message": f"Failed to get playlists: {str(e)}"}
+        return ErrorResult(message=f"Failed to get playlists: {str(e)}")
 
 
 @mcp.tool()
-def get_playlist_tracks(playlist_id: str, limit: int = 100) -> dict:
+def get_playlist_tracks(
+    playlist_id: str, limit: int = 100
+) -> PlaylistTracks | ErrorResult:
     """
     Get tracks from a specific playlist.
 
@@ -312,18 +317,14 @@ def get_playlist_tracks(playlist_id: str, limit: int = 100) -> dict:
         List of tracks in the playlist
     """
     if not ensure_authenticated():
-        return {
-            "status": "error",
-            "message": "Not authenticated. Please run the 'login' tool first.",
-        }
+        return ErrorResult(
+            message="Not authenticated. Please run the 'login' tool first."
+        )
 
     try:
         playlist = session.playlist(playlist_id)
         if not playlist:
-            return {
-                "status": "error",
-                "message": f"Playlist with ID '{playlist_id}' not found",
-            }
+            return ErrorResult(message=f"Playlist with ID '{playlist_id}' not found")
 
         # Get tracks from playlist
         playlist_tracks = playlist.tracks(limit=limit)
@@ -331,28 +332,25 @@ def get_playlist_tracks(playlist_id: str, limit: int = 100) -> dict:
         tracks = []
         for track in playlist_tracks:
             tracks.append(
-                {
-                    "id": str(track.id),
-                    "title": track.name,
-                    "artist": track.artist.name if track.artist else "Unknown Artist",
-                    "album": track.album.name if track.album else "Unknown Album",
-                    "duration_seconds": track.duration,
-                    "url": f"https://tidal.com/browse/track/{track.id}",
-                }
+                Track(
+                    id=str(track.id),
+                    title=track.name,
+                    artist=track.artist.name if track.artist else "Unknown Artist",
+                    album=track.album.name if track.album else "Unknown Album",
+                    duration_seconds=track.duration,
+                    url=f"https://tidal.com/browse/track/{track.id}",
+                )
             )
 
-        return {
-            "status": "success",
-            "playlist_name": playlist.name,
-            "playlist_id": playlist_id,
-            "count": len(tracks),
-            "tracks": tracks,
-        }
+        return PlaylistTracks(
+            status="success",
+            playlist_name=playlist.name,
+            playlist_id=playlist_id,
+            count=len(tracks),
+            tracks=tracks,
+        )
     except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Failed to get playlist tracks: {str(e)}",
-        }
+        return ErrorResult(message=f"Failed to get playlist tracks: {str(e)}")
 
 
 if __name__ == "__main__":

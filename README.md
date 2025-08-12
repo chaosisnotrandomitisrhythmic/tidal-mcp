@@ -130,7 +130,8 @@ tidal-mcp/
 └── src/
     └── tidal_mcp/
         ├── __init__.py      # Package init
-        └── server.py        # Complete MCP server
+        ├── models.py        # Pydantic models for structured outputs
+        └── server.py        # MCP server implementation
 ```
 
 ### Testing
@@ -168,8 +169,8 @@ These features would require extending the TIDAL API integration in `server.py`.
 The following enhancements would align the server with FastMCP 2.11+ best practices:
 
 ### Code Architecture
+- ✅ **Structured Output Schemas** - Use Pydantic models for type-safe responses (COMPLETED)
 - **Async Operations** - Convert tools to async functions for better performance
-- **Structured Output Schemas** - Use Pydantic models for type-safe responses
 - **Context State Management** - Replace global session with FastMCP Context
 - **Middleware Support** - Add logging, rate limiting, or auth middleware
 - **Environment Configuration** - Support settings and environment variables
