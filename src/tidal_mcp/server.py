@@ -4,7 +4,6 @@ TIDAL MCP Server - Simplified Architecture
 Clean, minimal implementation with direct TIDAL API integration
 """
 
-import tempfile
 import webbrowser
 from pathlib import Path
 from typing import List, Optional
@@ -12,11 +11,17 @@ from typing import List, Optional
 import tidalapi
 from mcp.server.fastmcp import FastMCP
 
-# Initialize MCP server
-mcp = FastMCP("TIDAL MCP")
+# Initialize MCP server with metadata
+mcp = FastMCP(
+    name="TIDAL MCP",
+    description="MCP server for TIDAL music streaming service integration",
+)
 
-# Session management
-SESSION_FILE = Path(tempfile.gettempdir()) / "tidal-mcp-session.json"
+# Session management - use project root directory
+PROJECT_ROOT = Path(__file__).parent.parent.parent  # Navigate up to project root
+SESSION_DIR = PROJECT_ROOT / ".tidal-sessions"
+SESSION_DIR.mkdir(parents=True, exist_ok=True)
+SESSION_FILE = SESSION_DIR / "session.json"
 session = tidalapi.Session()
 
 
@@ -350,14 +355,6 @@ def get_playlist_tracks(playlist_id: str, limit: int = 100) -> dict:
         }
 
 
-def main():
-    """Run the TIDAL MCP server"""
-    # MCP servers must not print to stdout - only JSON protocol messages allowed
-    # All debug output should go to stderr or be disabled
-    pass
-
-
 if __name__ == "__main__":
-    # The FastMCP framework handles the server lifecycle
-    # No need to call main() - just having the mcp instance is enough
-    pass
+    # Run the server with stdio transport (default for MCP)
+    mcp.run()

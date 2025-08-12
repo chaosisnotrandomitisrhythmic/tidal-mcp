@@ -49,6 +49,7 @@ Thumbs.db
 
 # Session files
 *session*.json
+.tidal-sessions/
 
 # UV
 .uv_cache/
