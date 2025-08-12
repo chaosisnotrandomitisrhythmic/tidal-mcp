@@ -77,7 +77,7 @@ which uv
 Single-file MCP server with direct TIDAL API integration:
 - **FastMCP Framework** - Handles MCP protocol efficiently
 - **Direct tidalapi Integration** - No intermediate layers
-- **Session Persistence** - OAuth tokens saved to temp file
+- **Session Persistence** - OAuth tokens saved to `.tidal-sessions/` (gitignored)
 - **Clean JSON Output** - No debug messages to stdout
 
 ## Usage Examples
@@ -105,7 +105,7 @@ If the MCP Inspector shows connection errors:
 If login fails or session expires:
 ```bash
 # Remove old session file
-rm /var/folders/*/T/tidal-mcp-session.json
+rm -rf .tidal-sessions/
 
 # Run login tool again
 ```
@@ -162,6 +162,24 @@ Based on testing (2025-08-11), the following playlist editing capabilities are n
 - **Playlist collaboration** - Share editing permissions with other users
 
 These features would require extending the TIDAL API integration in `server.py`. The current implementation provides basic functionality (create, add tracks, view) but lacks advanced editing capabilities needed for full playlist management.
+
+## TODO: FastMCP Best Practices Improvements
+
+The following enhancements would align the server with FastMCP 2.11+ best practices:
+
+### Code Architecture
+- **Async Operations** - Convert tools to async functions for better performance
+- **Structured Output Schemas** - Use Pydantic models for type-safe responses
+- **Context State Management** - Replace global session with FastMCP Context
+- **Middleware Support** - Add logging, rate limiting, or auth middleware
+- **Environment Configuration** - Support settings and environment variables
+
+### Implementation Quality
+- **Error Handling** - Implement more granular error types and responses
+- **Input Validation** - Add comprehensive parameter validation
+- **Testing Suite** - Create unit and integration tests
+- **Documentation** - Add API documentation and type hints
+- **Performance** - Optimize for concurrent requests and caching
 
 ## Requirements
 

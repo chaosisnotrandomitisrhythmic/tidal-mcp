@@ -101,9 +101,10 @@ pkill -f "tidal-mcp"
 
 ### Authentication Flow
 1. Uses `tidalapi.Session.login_oauth()` for browser-based OAuth
-2. Session persisted to: `/var/folders/*/T/tidal-mcp-v2-session.json`
+2. Session persisted to: `<project_root>/.tidal-sessions/session.json`
 3. Automatic session reuse on subsequent runs
 4. No manual token management required
+5. Session files are gitignored for security
 
 ### Available MCP Tools
 
@@ -130,7 +131,10 @@ Based on testing, TIDAL search works best with:
 ```python
 # Global session - simple and effective
 session = tidalapi.Session()
-SESSION_FILE = Path(tempfile.gettempdir()) / "tidal-mcp-session.json"
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+SESSION_DIR = PROJECT_ROOT / ".tidal-sessions"
+SESSION_DIR.mkdir(parents=True, exist_ok=True)
+SESSION_FILE = SESSION_DIR / "session.json"
 
 def ensure_authenticated() -> bool:
     """Check authentication - used by all tools"""
@@ -248,7 +252,7 @@ favorites = get_favorites(50)
 **Solution**:
 ```bash
 # Delete session file
-rm /var/folders/*/T/tidal-mcp-session.json
+rm .tidal-sessions/session.json
 
 # Run login tool again
 ```
@@ -297,7 +301,7 @@ pkill -f "inspector|tidal-mcp"
 ### Integration Testing
 ```bash
 # 1. Clean start
-rm /var/folders/*/T/tidal-mcp-session.json
+rm -rf .tidal-sessions/
 
 # 2. Test with inspector
 npx @modelcontextprotocol/inspector uv run tidal-mcp
@@ -364,6 +368,51 @@ When adding features, maintain the minimalist approach:
 - Maintain direct TIDAL API integration
 - Preserve single-file architecture if possible
 - Always test with MCP Inspector before release
+
+### FastMCP Best Practices Improvements
+
+Based on FastMCP 2.11+ best practices analysis, consider these enhancements:
+
+1. **Async Operations**
+   - Convert all tools to async functions for better performance
+   - Leverage async capabilities of tidalapi where available
+   - Improves concurrent request handling
+
+2. **Structured Output Schemas**
+   - Implement Pydantic models for type-safe responses
+   - Define output schemas for each tool
+   - Enables better client-side type checking and validation
+   ```python
+   from pydantic import BaseModel
+   
+   class TrackInfo(BaseModel):
+       id: str
+       title: str
+       artist: str
+       # ... etc
+   ```
+
+3. **Context State Management**
+   - Use FastMCP's Context for session management instead of global variables
+   - Enables better state isolation between requests
+   - More robust for multi-user scenarios
+   ```python
+   from fastmcp import Context
+   
+   @mcp.tool()
+   async def login(context: Context) -> dict:
+       context.state["session"] = session
+   ```
+
+4. **Middleware Integration**
+   - Add logging middleware for debugging (stderr only)
+   - Consider rate limiting middleware for API protection
+   - Authentication middleware for enhanced security
+
+5. **Environment Configuration**
+   - Add settings support for configurable options
+   - Use environment variables for API keys if needed
+   - Support different environments (dev/prod)
 
 ## Code Style
 
