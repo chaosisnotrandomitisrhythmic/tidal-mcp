@@ -281,10 +281,14 @@ def get_user_playlists(limit: int = 20) -> PlaylistList | ErrorResult:
         )
 
     try:
-        playlists = session.user.playlists(limit=limit)
+        # Get all playlists (API doesn't support limit parameter)
+        all_playlists = session.user.playlists()
+        
+        # Apply client-side limiting
+        limited_playlists = all_playlists[:limit] if limit else all_playlists
 
         playlist_list = []
-        for playlist in playlists:
+        for playlist in limited_playlists:
             playlist_list.append(
                 Playlist(
                     id=str(playlist.id),

@@ -278,6 +278,15 @@ pkill -f "inspector|tidal-mcp"
 - Check spelling
 - Verify authentication status
 
+### Issue: "LoggedInUser.playlists() got an unexpected keyword argument 'limit'"
+
+**Cause**: TIDAL API doesn't support limit parameter on user playlists endpoint
+
+**Solution**: 
+- Issue fixed in server.py - now uses client-side limiting
+- Fetches all playlists first, then applies limit via array slicing
+- Pattern: `all_playlists = session.user.playlists(); limited = all_playlists[:limit]`
+
 ## Design Principles
 
 1. **Simplicity First** - Minimal code, maximum functionality
