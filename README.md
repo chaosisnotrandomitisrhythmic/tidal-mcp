@@ -1,25 +1,30 @@
 # TIDAL MCP
 
-Minimal TIDAL Model Context Protocol server for music discovery and playlist management.
+Async-first TIDAL Model Context Protocol server for music discovery and playlist management. Built with FastMCP 2.12+ for stability and performance.
 
 ## Features
 
-- 🔍 Track search
+- 🔍 Track search with async operations
 - 🎵 Playlist creation and management  
 - ❤️ Favorites access
 - 🔐 OAuth authentication with session persistence
-- ⚡ FastMCP framework with minimal dependencies
+- ⚡ FastMCP 2.12+ with async/await architecture
+- 🚀 Non-blocking I/O for all TIDAL API operations
+- 🎯 Clean error handling with ToolError exceptions
 
 ## Quick Start
 
 ```bash
-# Install
+# Install dependencies (including anyio for async support)
 cd /path/to/tidal-mcp
 uv sync
 uv pip install -e .
 
-# Test
+# Test with MCP Inspector
 npx @modelcontextprotocol/inspector uv run tidal-mcp
+
+# Quick protocol test
+echo '{"jsonrpc": "2.0", "method": "initialize", "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "test", "version": "1.0.0"}}, "id": 1}' | uv run tidal-mcp
 ```
 
 ## Available Tools
@@ -112,10 +117,19 @@ Remember: You're creating what Levan called "a feeling." Every track earns its p
 
 ## Architecture
 
-- Single-file MCP server (`server.py`)
-- Direct TIDAL API integration via `tidalapi`
-- Session persistence in `.tidal-sessions/`
-- Pydantic models for structured outputs
+### Technical Stack
+- **Framework**: FastMCP 2.12+ with async/await support
+- **Async Runtime**: anyio for thread pool execution
+- **TIDAL Integration**: tidalapi library (synchronous, wrapped with anyio.to_thread)
+- **Error Handling**: FastMCP ToolError exceptions for clean protocol errors
+- **Session Management**: OAuth tokens persisted in `.tidal-sessions/`
+- **Data Models**: Pydantic schemas for structured outputs
+
+### Key Design Patterns
+- All MCP tools are async functions for non-blocking I/O
+- Blocking tidalapi operations run in thread pool via `anyio.to_thread.run_sync()`
+- Global session instance with async authentication checks
+- Clean separation between MCP protocol layer and TIDAL API layer
 
 ## Troubleshooting
 
@@ -131,17 +145,23 @@ lsof -i :6274 -i :6277
 kill <PID>
 ```
 
+## Requirements
+
+- Python 3.10+
+- uv package manager
+- TIDAL account (free or premium)
+
 ## Development
 
 ```
 tidal-mcp/
-├── pyproject.toml
-├── README.md
-├── CLAUDE.md
+├── pyproject.toml          # Dependencies: fastmcp, tidalapi, anyio
+├── README.md              # This file
+├── CLAUDE.md              # AI development guidance
 └── src/
     └── tidal_mcp/
         ├── __init__.py
-        ├── models.py
+        ├── models.py      # Pydantic models for structured outputs
         └── server.py
 ```
 

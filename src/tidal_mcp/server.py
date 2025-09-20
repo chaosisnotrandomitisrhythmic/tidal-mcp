@@ -8,8 +8,10 @@ import webbrowser
 from pathlib import Path
 from typing import List
 
+import anyio
 import tidalapi
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
+from fastmcp.exceptions import ToolError
 
 # Import all models from the separate models module
 from .models import (
@@ -21,14 +23,36 @@ from .models import (
     CreatePlaylistResult,
     AddTracksResult,
     AuthResult,
-    ErrorResult,
 )
 
 
+# Server configuration
+SERVER_NAME = "TIDAL MCP"
+SERVER_INSTRUCTIONS = """MCP server for TIDAL music streaming service integration. 
+
+Provides tools for searching music, managing playlists, and accessing your TIDAL library.
+
+Authentication:
+- Use the 'login' tool first to authenticate with TIDAL via OAuth
+- Session is persisted and reused across restarts
+
+Search:
+- Use 'search_tracks' to find music (works best with artist names or song titles)
+
+Playlist Management:
+- Create playlists with 'create_playlist'
+- Add tracks with 'add_tracks_to_playlist'
+- List your playlists with 'get_user_playlists'
+- Get playlist tracks with 'get_playlist_tracks'
+
+Library Access:
+- Get favorite tracks with 'get_favorites'
+"""
+
 # Initialize MCP server with metadata
 mcp = FastMCP(
-    name="TIDAL MCP",
-    instructions="MCP server for TIDAL music streaming service integration. Provides tools for searching music, managing playlists, and accessing your TIDAL library.",
+    name=SERVER_NAME,
+    instructions=SERVER_INSTRUCTIONS,
 )
 
 # Session management - use project root directory
@@ -39,15 +63,22 @@ SESSION_FILE = SESSION_DIR / "session.json"
 session = tidalapi.Session()
 
 
-def ensure_authenticated() -> bool:
+async def ensure_authenticated() -> bool:
     """Check if user is authenticated with TIDAL"""
-    if SESSION_FILE.exists():
-        session.load_session_from_file(SESSION_FILE)
-    return session.check_login()
+    if await anyio.Path(SESSION_FILE).exists():
+        await anyio.to_thread.run_sync(session.load_session_from_file, SESSION_FILE)
+    return await anyio.to_thread.run_sync(session.check_login)
 
 
-@mcp.tool()
-def login() -> AuthResult:
+@mcp.tool(
+    annotations={
+        "title": "Authenticate with TIDAL",
+        "readOnlyHint": False,
+        "openWorldHint": True,
+        "idempotentHint": False,
+    }
+)
+async def login() -> AuthResult:
     """
     Authenticate with TIDAL using OAuth browser flow.
     Opens browser automatically for secure login.
@@ -56,7 +87,7 @@ def login() -> AuthResult:
         Authentication status and user information
     """
     # Check if already authenticated
-    if ensure_authenticated():
+    if await ensure_authenticated():
         return AuthResult(
             status="success",
             message="Already authenticated with TIDAL",
@@ -64,8 +95,8 @@ def login() -> AuthResult:
         )
 
     try:
-        # Start OAuth flow
-        login_obj, future = session.login_oauth()
+        # Start OAuth flow in thread to avoid blocking
+        login_obj, future = await anyio.to_thread.run_sync(session.login_oauth)
 
         # Open browser for authentication
         auth_url = login_obj.verification_uri_complete
@@ -73,33 +104,29 @@ def login() -> AuthResult:
             auth_url = "https://" + auth_url
 
         # Browser will open automatically
-        webbrowser.open(auth_url)
+        await anyio.to_thread.run_sync(webbrowser.open, auth_url)
 
         # Wait for completion
-        future.result()
+        await anyio.to_thread.run_sync(future.result)
 
         # Verify and save session
-        if session.check_login():
-            session.save_session_to_file(SESSION_FILE)
+        if await anyio.to_thread.run_sync(session.check_login):
+            await anyio.to_thread.run_sync(session.save_session_to_file, SESSION_FILE)
             return AuthResult(
                 status="success",
                 message="Successfully authenticated with TIDAL",
                 authenticated=True,
             )
         else:
-            return AuthResult(
-                status="error", message="Authentication failed", authenticated=False
-            )
+            raise ToolError("Authentication failed - OAuth flow did not complete")
+    except ToolError:
+        raise
     except Exception as e:
-        return AuthResult(
-            status="error",
-            message=f"Authentication error: {str(e)}",
-            authenticated=False,
-        )
+        raise ToolError(f"Authentication error: {str(e)}")
 
 
 @mcp.tool()
-def search_tracks(query: str, limit: int = 10) -> TrackList | ErrorResult:
+async def search_tracks(query: str, limit: int = 10) -> TrackList:
     """
     Search for tracks on TIDAL.
 
@@ -111,9 +138,7 @@ def search_tracks(query: str, limit: int = 10) -> TrackList | ErrorResult:
         List of tracks with id, title, artist, album, and duration
     """
     if not ensure_authenticated():
-        return ErrorResult(
-            message="Not authenticated. Please run the 'login' tool first."
-        )
+        raise ToolError("Not authenticated. Please run the 'login' tool first.")
 
     try:
         # Perform search
@@ -138,11 +163,11 @@ def search_tracks(query: str, limit: int = 10) -> TrackList | ErrorResult:
             status="success", query=query, count=len(tracks), tracks=tracks
         )
     except Exception as e:
-        return ErrorResult(message=f"Search failed: {str(e)}")
+        raise ToolError(f"Search failed: {str(e)}")
 
 
 @mcp.tool()
-def get_favorites(limit: int = 20) -> TrackList | ErrorResult:
+def get_favorites(limit: int = 20) -> TrackList:
     """
     Get user's favorite tracks from TIDAL.
 
@@ -153,9 +178,7 @@ def get_favorites(limit: int = 20) -> TrackList | ErrorResult:
         List of favorite tracks
     """
     if not ensure_authenticated():
-        return ErrorResult(
-            message="Not authenticated. Please run the 'login' tool first."
-        )
+        raise ToolError("Not authenticated. Please run the 'login' tool first.")
 
     try:
         favorites = session.user.favorites.tracks(limit=limit)
@@ -175,13 +198,13 @@ def get_favorites(limit: int = 20) -> TrackList | ErrorResult:
 
         return TrackList(status="success", count=len(tracks), tracks=tracks)
     except Exception as e:
-        return ErrorResult(message=f"Failed to get favorites: {str(e)}")
+        raise ToolError(f"Failed to get favorites: {str(e)}")
 
 
 @mcp.tool()
 def create_playlist(
     name: str, description: str = ""
-) -> CreatePlaylistResult | ErrorResult:
+) -> CreatePlaylistResult:
     """
     Create a new playlist in your TIDAL account.
 
@@ -193,9 +216,7 @@ def create_playlist(
         Created playlist information including ID and URL
     """
     if not ensure_authenticated():
-        return ErrorResult(
-            message="Not authenticated. Please run the 'login' tool first."
-        )
+        raise ToolError("Not authenticated. Please run the 'login' tool first.")
 
     try:
         # Create playlist
@@ -213,13 +234,13 @@ def create_playlist(
             message=f"Created playlist '{name}'",
         )
     except Exception as e:
-        return ErrorResult(message=f"Failed to create playlist: {str(e)}")
+        raise ToolError(f"Failed to create playlist: {str(e)}")
 
 
 @mcp.tool()
 def add_tracks_to_playlist(
     playlist_id: str, track_ids: List[str]
-) -> AddTracksResult | ErrorResult:
+) -> AddTracksResult:
     """
     Add tracks to an existing playlist.
 
@@ -231,15 +252,13 @@ def add_tracks_to_playlist(
         Success status and number of tracks added
     """
     if not ensure_authenticated():
-        return ErrorResult(
-            message="Not authenticated. Please run the 'login' tool first."
-        )
+        raise ToolError("Not authenticated. Please run the 'login' tool first.")
 
     try:
         # Get the playlist
         playlist = session.playlist(playlist_id)
         if not playlist:
-            return ErrorResult(message=f"Playlist with ID '{playlist_id}' not found")
+            raise ToolError(f"Playlist with ID '{playlist_id}' not found")
 
         # Convert track IDs to integers (TIDAL API expects integers)
         track_ids_int = [int(track_id) for track_id in track_ids]
@@ -257,15 +276,15 @@ def add_tracks_to_playlist(
                 playlist_url=f"https://tidal.com/browse/playlist/{playlist_id}",
             )
         else:
-            return ErrorResult(message="Failed to add tracks to playlist")
+            raise ToolError("Failed to add tracks to playlist")
     except ValueError as e:
-        return ErrorResult(message=f"Invalid track ID format: {str(e)}")
+        raise ToolError(f"Invalid track ID format: {str(e)}")
     except Exception as e:
-        return ErrorResult(message=f"Failed to add tracks: {str(e)}")
+        raise ToolError(f"Failed to add tracks: {str(e)}")
 
 
 @mcp.tool()
-def get_user_playlists(limit: int = 20) -> PlaylistList | ErrorResult:
+def get_user_playlists(limit: int = 20) -> PlaylistList:
     """
     Get list of user's playlists from TIDAL.
 
@@ -276,9 +295,7 @@ def get_user_playlists(limit: int = 20) -> PlaylistList | ErrorResult:
         List of user's playlists with ID, name, description, and track count
     """
     if not ensure_authenticated():
-        return ErrorResult(
-            message="Not authenticated. Please run the 'login' tool first."
-        )
+        raise ToolError("Not authenticated. Please run the 'login' tool first.")
 
     try:
         # Get all playlists (API doesn't support limit parameter)
@@ -303,13 +320,13 @@ def get_user_playlists(limit: int = 20) -> PlaylistList | ErrorResult:
             status="success", count=len(playlist_list), playlists=playlist_list
         )
     except Exception as e:
-        return ErrorResult(message=f"Failed to get playlists: {str(e)}")
+        raise ToolError(f"Failed to get playlists: {str(e)}")
 
 
 @mcp.tool()
-def get_playlist_tracks(
+async def get_playlist_tracks(
     playlist_id: str, limit: int = 100
-) -> PlaylistTracks | ErrorResult:
+) -> PlaylistTracks:
     """
     Get tracks from a specific playlist.
 
@@ -320,18 +337,16 @@ def get_playlist_tracks(
     Returns:
         List of tracks in the playlist
     """
-    if not ensure_authenticated():
-        return ErrorResult(
-            message="Not authenticated. Please run the 'login' tool first."
-        )
+    if not await ensure_authenticated():
+        raise ToolError("Not authenticated. Please run the 'login' tool first.")
 
     try:
-        playlist = session.playlist(playlist_id)
+        playlist = await anyio.to_thread.run_sync(session.playlist, playlist_id)
         if not playlist:
-            return ErrorResult(message=f"Playlist with ID '{playlist_id}' not found")
+            raise ToolError(f"Playlist with ID '{playlist_id}' not found")
 
-        # Get tracks from playlist
-        playlist_tracks = playlist.tracks(limit=limit)
+        # Get tracks from playlist in thread pool
+        playlist_tracks = await anyio.to_thread.run_sync(playlist.tracks, limit=limit)
 
         tracks = []
         for track in playlist_tracks:
@@ -354,9 +369,13 @@ def get_playlist_tracks(
             tracks=tracks,
         )
     except Exception as e:
-        return ErrorResult(message=f"Failed to get playlist tracks: {str(e)}")
+        raise ToolError(f"Failed to get playlist tracks: {str(e)}")
+
+
+def run_server() -> None:
+    """Run the MCP server."""
+    mcp.run()
 
 
 if __name__ == "__main__":
-    # Run the server with stdio transport (default for MCP)
-    mcp.run()
+    run_server()

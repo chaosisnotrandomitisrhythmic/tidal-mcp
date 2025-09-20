@@ -6,7 +6,7 @@ This file provides guidance to Claude when working with the TIDAL MCP project.
 
 TIDAL MCP is a simplified Model Context Protocol server for TIDAL music integration. It provides clean, direct access to TIDAL's music catalog and playlist management features through Claude Desktop or any MCP-compatible client.
 
-**Architecture Philosophy**: Minimal, single-process design with direct API integration using FastMCP framework.
+**Architecture Philosophy**: Minimal, async-first design with direct API integration using FastMCP framework. Follows stable patterns from production MCP servers.
 
 ## Project Structure
 
@@ -25,22 +25,35 @@ tidal-mcp/
 ## Key Implementation Details
 
 ### FastMCP Integration
-The server uses FastMCP for clean MCP protocol handling:
+The server uses FastMCP 2.12+ for clean MCP protocol handling with async support:
 ```python
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
+from fastmcp.exceptions import ToolError
+import anyio
 
-mcp = FastMCP("TIDAL MCP")
+mcp = FastMCP(
+    name="TIDAL MCP",
+    instructions="Detailed server instructions here"
+)
 
 @mcp.tool()
-def tool_name(...):
-    # Tool implementation
+async def tool_name(...):
+    # Async tool implementation
+    # Use anyio.to_thread.run_sync() for blocking operations
 ```
 
 ### Entry Point Configuration
-**IMPORTANT**: The entry point in `pyproject.toml` must point to `mcp.run`:
+**IMPORTANT**: The entry point in `pyproject.toml` must point to the `run_server` function:
 ```toml
 [project.scripts]
-tidal-mcp = "tidal_mcp.server:mcp.run"
+tidal-mcp = "tidal_mcp.server:run_server"
+```
+
+The server module must have a `run_server` function:
+```python
+def run_server() -> None:
+    """Run the MCP server."""
+    mcp.run()
 ```
 
 ### No Print Statements to Stdout
@@ -59,8 +72,9 @@ def main():
 
 **Minimal dependency policy** - only essential packages:
 
-- `mcp[cli]>=1.6.0` - Model Context Protocol framework with FastMCP
+- `fastmcp>=2.12.0` - FastMCP framework for MCP protocol handling
 - `tidalapi>=0.8.3` - TIDAL API client library
+- `anyio>=4.0.0` - Async utilities for running blocking operations
 
 ## Development Commands
 
@@ -137,36 +151,34 @@ SESSION_DIR = PROJECT_ROOT / ".tidal-sessions"
 SESSION_DIR.mkdir(parents=True, exist_ok=True)
 SESSION_FILE = SESSION_DIR / "session.json"
 
-def ensure_authenticated() -> bool:
+async def ensure_authenticated() -> bool:
     """Check authentication - used by all tools"""
-    if SESSION_FILE.exists():
-        session.load_session_from_file(SESSION_FILE)
-    return session.check_login()
+    if await anyio.Path(SESSION_FILE).exists():
+        await anyio.to_thread.run_sync(session.load_session_from_file, SESSION_FILE)
+    return await anyio.to_thread.run_sync(session.check_login)
 ```
 
 ### Error Handling Pattern
 ```python
-from .models import ErrorResult, TrackList
+from .models import TrackList
+from fastmcp.exceptions import ToolError
 
 @mcp.tool()
-def tool_name(param: str) -> TrackList | ErrorResult:
+async def tool_name(param: str) -> TrackList:
     # Always check authentication first
-    if not ensure_authenticated():
-        return ErrorResult(
-            message="Not authenticated. Please run the 'login' tool first."
-        )
+    if not await ensure_authenticated():
+        raise ToolError("Not authenticated. Please run the 'login' tool first.")
     
     try:
-        # Tool logic here
+        # Tool logic here - use anyio.to_thread for blocking operations
+        result = await anyio.to_thread.run_sync(blocking_operation, param)
         return TrackList(
             status="success",
             tracks=tracks,
             count=len(tracks)
         )
     except Exception as e:
-        return ErrorResult(
-            message=f"Operation failed: {str(e)}"
-        )
+        raise ToolError(f"Operation failed: {str(e)}")
 ```
 
 ### Data Formatting
@@ -212,27 +224,29 @@ which uv  # Usually /Users/username/.local/bin/uv on macOS
 
 ### Music Discovery Workflow
 ```python
+# All operations are async
 # 1. Authenticate
-login()
+await login()
 
 # 2. Search for music
-results = search_tracks("Radiohead", 10)
+results = await search_tracks("Radiohead", 10)
 
 # 3. Create playlist
-playlist = create_playlist("Radiohead Mix", "My favorite Radiohead tracks")
+playlist = await create_playlist("Radiohead Mix", "My favorite Radiohead tracks")
 
 # 4. Add tracks
 track_ids = [track["id"] for track in results["tracks"]]
-add_tracks_to_playlist(playlist["playlist"]["id"], track_ids)
+await add_tracks_to_playlist(playlist["playlist"]["id"], track_ids)
 ```
 
 ### Playlist Management
 ```python
+# All operations are async
 # List playlists
-playlists = get_user_playlists(20)
+playlists = await get_user_playlists(20)
 
 # Get tracks from specific playlist
-tracks = get_playlist_tracks(playlist_id, 100)
+tracks = await get_playlist_tracks(playlist_id, 100)
 
 # Get favorite tracks
 favorites = get_favorites(50)
@@ -352,8 +366,8 @@ For single-user use, these playlist editing features would be genuinely useful:
    - Basic cleanup functionality
 
 ### Implementation Notes
-- Keep synchronous implementation (no async needed for single-user)
-- Maintain current simple error handling pattern
+- Uses async/await for all I/O operations
+- ToolError exceptions for consistent error handling
 - Test with MCP Inspector before use
 - Preserve the single-file architecture if possible
 
@@ -362,27 +376,50 @@ For single-user use, these playlist editing features would be genuinely useful:
 This project is optimized for personal use and intentionally avoids overengineering:
 
 ### What We Keep Simple
-- ✅ **Synchronous operations** - No async complexity needed for single-user
+- ✅ **Async operations** - Non-blocking I/O with anyio.to_thread for sync libraries
 - ✅ **Global session management** - Works perfectly for personal use
 - ✅ **Direct TIDAL API integration** - No unnecessary abstraction layers
 - ✅ **Structured Output Schemas** - Pydantic models already implemented
-- ✅ **Minimal dependencies** - Only `mcp[cli]` and `tidalapi`
+- ✅ **Minimal dependencies** - Only `fastmcp`, `tidalapi`, and `anyio`
 - ✅ **Single-file architecture** - Easy to understand and maintain
 
 ### What We Intentionally Avoid
-- ❌ Async/await complexity (not needed for single-user)
 - ❌ Complex state management (global session works fine)
 - ❌ Middleware layers (unnecessary for personal use)
 - ❌ Environment configurations (hardcoded settings are fine)
 - ❌ Extensive testing suites (manual testing sufficient)
-- ❌ Performance optimizations (not needed at this scale)
+- ❌ Over-optimization (balanced async approach is sufficient)
+
+## Architecture Improvements (2025-09-20)
+
+The server has been upgraded to follow production-ready patterns from stable MCP servers:
+
+### Async Architecture
+- All tools are now async functions for non-blocking I/O
+- Uses `anyio.to_thread.run_sync()` to run blocking tidalapi operations in thread pool
+- Prevents event loop blocking during OAuth flows and API calls
+
+### Error Handling
+- Replaced `ErrorResult` returns with `ToolError` exceptions from FastMCP
+- Provides cleaner, more consistent error propagation
+- Better integration with MCP protocol error reporting
+
+### FastMCP 2.12+
+- Upgraded from `mcp[cli]` to `fastmcp>=2.12.0`
+- Uses server name and instructions parameters
+- Better tool annotations support
+
+### Entry Point Pattern
+- Added dedicated `run_server()` function
+- Cleaner separation of concerns
+- Follows revenant-mcp patterns
 
 ## Code Style
 
 - Use FastMCP decorators for all tools
-- Consistent error response format
+- Raise ToolError for error conditions
 - Type hints where helpful
 - Clear docstrings for each tool
 - Format with black/isort if needed
 
-Remember: This project prioritizes **simplicity**, **reliability**, and **clean MCP protocol implementation**. No overengineering!
+Remember: This project prioritizes **stability**, **reliability**, and **clean async MCP implementation** while maintaining simplicity!
