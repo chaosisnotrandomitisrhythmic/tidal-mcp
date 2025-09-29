@@ -345,11 +345,14 @@ async def get_playlist_tracks(
         if not playlist:
             raise ToolError(f"Playlist with ID '{playlist_id}' not found")
 
-        # Get tracks from playlist in thread pool
-        playlist_tracks = await anyio.to_thread.run_sync(playlist.tracks, limit=limit)
+        # Get all tracks from playlist (API doesn't support limit parameter)
+        all_playlist_tracks = await anyio.to_thread.run_sync(playlist.tracks)
+        
+        # Apply client-side limiting
+        limited_tracks = all_playlist_tracks[:limit] if limit else all_playlist_tracks
 
         tracks = []
-        for track in playlist_tracks:
+        for track in limited_tracks:
             tracks.append(
                 Track(
                     id=str(track.id),

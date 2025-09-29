@@ -301,6 +301,16 @@ pkill -f "inspector|tidal-mcp"
 - Fetches all playlists first, then applies limit via array slicing
 - Pattern: `all_playlists = session.user.playlists(); limited = all_playlists[:limit]`
 
+### Issue: "run_sync() got an unexpected keyword argument 'limit'" in get_playlist_tracks
+
+**Cause**: TIDAL API's `playlist.tracks()` method doesn't accept a limit parameter
+
+**Solution** (Fixed 2025-09-29):
+- Modified `get_playlist_tracks` to use client-side limiting like `get_user_playlists`
+- Fetches all tracks first: `all_playlist_tracks = await anyio.to_thread.run_sync(playlist.tracks)`
+- Applies limit via slicing: `limited_tracks = all_playlist_tracks[:limit]`
+- Consistent pattern across both playlist-related functions
+
 ## Design Principles
 
 1. **Simplicity First** - Minimal code, maximum functionality
