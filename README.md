@@ -135,6 +135,7 @@ Remember: You're creating what Levan called "a feeling." Every track earns its p
 ## Troubleshooting
 
 **Authentication Issues**
+- **IMPORTANT**: Requires tidalapi >= 0.8.6 (updated OAuth client credentials)
 - Expired sessions are automatically cleaned up when detected
 - Manual session reset:
   ```bash
@@ -143,6 +144,7 @@ Remember: You're creating what Levan called "a feeling." Every track earns its p
   ```
 - OAuth tokens expire after ~6 months
 - Session files are stored in `.tidal-sessions/session.json`
+- If you see "401 invalid_client", update tidalapi: `uv add "tidalapi>=0.8.6"`
 
 **Port Conflicts**
 ```bash

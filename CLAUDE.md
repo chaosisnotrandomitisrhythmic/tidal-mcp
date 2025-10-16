@@ -73,8 +73,10 @@ def main():
 **Minimal dependency policy** - only essential packages:
 
 - `fastmcp>=2.12.0` - FastMCP framework for MCP protocol handling
-- `tidalapi>=0.8.3` - TIDAL API client library
+- `tidalapi>=0.8.6` - TIDAL API client library (v0.8.6+ has working OAuth credentials)
 - `anyio>=4.0.0` - Async utilities for running blocking operations
+
+**IMPORTANT**: tidalapi version 0.8.6 or higher is required. Earlier versions have invalid OAuth client credentials that cause 401 errors.
 
 ## Development Commands
 
@@ -405,6 +407,12 @@ This project is optimized for personal use and intentionally avoids overengineer
 - ❌ Environment configurations (hardcoded settings are fine)
 - ❌ Extensive testing suites (manual testing sufficient)
 - ❌ Over-optimization (balanced async approach is sufficient)
+
+## Critical Fix: OAuth Authentication (2025-10-16)
+
+**Issue**: 401 "invalid_client" errors with tidalapi < 0.8.6
+**Root Cause**: Deprecated OAuth client credentials in older versions
+**Solution**: Updated to tidalapi >= 0.8.6 which includes working OAuth credentials
 
 ## Architecture Improvements (2025-10-16)
 

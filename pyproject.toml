@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "fastmcp>=2.12.0",
-    "tidalapi>=0.8.3",
+    "tidalapi>=0.8.6",
     "anyio>=4.0.0",
 ]
 
