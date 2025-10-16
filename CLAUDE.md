@@ -265,12 +265,18 @@ favorites = get_favorites(50)
 
 ### Issue: Authentication Fails
 
-**Solution**:
-```bash
-# Delete session file
-rm .tidal-sessions/session.json
+**Cause**: OAuth tokens expire after ~6 months or session becomes corrupted
 
-# Run login tool again
+**Solution (Automatic)**: 
+- Server now automatically detects expired/invalid sessions
+- Corrupted session files are cleaned up automatically
+- Fresh OAuth flow triggered when needed
+
+**Manual Reset**:
+```bash
+# Force fresh authentication
+rm -rf .tidal-sessions/
+# Run login tool again - browser will open
 ```
 
 ### Issue: Port Already in Use
@@ -400,14 +406,21 @@ This project is optimized for personal use and intentionally avoids overengineer
 - ❌ Extensive testing suites (manual testing sufficient)
 - ❌ Over-optimization (balanced async approach is sufficient)
 
-## Architecture Improvements (2025-09-20)
+## Architecture Improvements (2025-10-16)
 
-The server has been upgraded to follow production-ready patterns from stable MCP servers:
+The server has been upgraded with robust authentication handling and full async architecture:
 
-### Async Architecture
-- All tools are now async functions for non-blocking I/O
-- Uses `anyio.to_thread.run_sync()` to run blocking tidalapi operations in thread pool
-- Prevents event loop blocking during OAuth flows and API calls
+### Authentication Improvements
+- **Automatic expired session detection** - Sessions are validated on every authentication check
+- **Self-healing session management** - Expired/corrupted sessions are automatically cleaned up
+- **Graceful OAuth refresh** - Browser automatically opens for new OAuth flow when needed
+- **Token expiration handling** - ~6 month OAuth tokens properly detected and refreshed
+
+### Complete Async Architecture
+- **All MCP tools are async** - Every tool function uses `async def` for consistency
+- **Thread pool for blocking ops** - `anyio.to_thread.run_sync()` wraps all tidalapi calls
+- **Non-blocking I/O throughout** - OAuth flows, API calls, and session management never block
+- **Consistent async patterns** - All `ensure_authenticated()` calls properly awaited
 
 ### Error Handling
 - Replaced `ErrorResult` returns with `ToolError` exceptions from FastMCP

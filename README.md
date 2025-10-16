@@ -7,10 +7,11 @@ Async-first TIDAL Model Context Protocol server for music discovery and playlist
 - 🔍 Track search with async operations
 - 🎵 Playlist creation and management  
 - ❤️ Favorites access
-- 🔐 OAuth authentication with session persistence
+- 🔐 OAuth authentication with automatic token refresh
 - ⚡ FastMCP 2.12+ with async/await architecture
 - 🚀 Non-blocking I/O for all TIDAL API operations
 - 🎯 Clean error handling with ToolError exceptions
+- 🔄 Automatic expired session cleanup
 
 ## Quick Start
 
@@ -134,10 +135,14 @@ Remember: You're creating what Levan called "a feeling." Every track earns its p
 ## Troubleshooting
 
 **Authentication Issues**
-```bash
-rm -rf .tidal-sessions/
-# Run login tool again
-```
+- Expired sessions are automatically cleaned up when detected
+- Manual session reset:
+  ```bash
+  rm -rf .tidal-sessions/
+  # Run login tool again - browser will open for OAuth
+  ```
+- OAuth tokens expire after ~6 months
+- Session files are stored in `.tidal-sessions/session.json`
 
 **Port Conflicts**
 ```bash
@@ -145,11 +150,11 @@ lsof -i :6274 -i :6277
 kill <PID>
 ```
 
-## Requirements
+**Search Not Finding Tracks**
+- Simplify queries (e.g., "Radiohead" instead of "Radiohead OK Computer")
+- Try artist name alone or song title alone
+- Check spelling and avoid special characters
 
-- Python 3.10+
-- uv package manager
-- TIDAL account (free or premium)
 
 ## Development
 
