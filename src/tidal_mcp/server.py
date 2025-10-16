@@ -4,6 +4,7 @@ TIDAL MCP Server - Simplified Architecture
 Clean, minimal implementation with direct TIDAL API integration
 """
 
+import json
 import webbrowser
 from pathlib import Path
 from typing import List
@@ -67,13 +68,28 @@ async def ensure_authenticated() -> bool:
     """Check if user is authenticated with TIDAL"""
     if await anyio.Path(SESSION_FILE).exists():
         try:
-            await anyio.to_thread.run_sync(session.load_session_from_file, SESSION_FILE)
-            # Check if the session is still valid
-            is_valid = await anyio.to_thread.run_sync(session.check_login)
-            if not is_valid:
-                # Session expired, remove the file
-                await anyio.Path(SESSION_FILE).unlink()
-            return is_valid
+            # Read session file and load using OAuth method
+            async with await anyio.open_file(SESSION_FILE, 'r') as f:
+                content = await f.read()
+                data = json.loads(content)
+            
+            # Load OAuth session with the new method
+            result = await anyio.to_thread.run_sync(
+                session.load_oauth_session,
+                data['token_type']['data'],
+                data['access_token']['data'],
+                data['refresh_token']['data'],
+                None  # expiry time
+            )
+            
+            if result:
+                # Check if the session is still valid
+                is_valid = await anyio.to_thread.run_sync(session.check_login)
+                if not is_valid:
+                    # Session expired, remove the file
+                    await anyio.Path(SESSION_FILE).unlink()
+                return is_valid
+            return False
         except Exception:
             # If loading fails, remove corrupted session file
             await anyio.Path(SESSION_FILE).unlink()
@@ -122,7 +138,17 @@ async def login() -> AuthResult:
 
         # Verify and save session
         if await anyio.to_thread.run_sync(session.check_login):
-            await anyio.to_thread.run_sync(session.save_session_to_file, SESSION_FILE)
+            # Save OAuth session data
+            session_data = {
+                "token_type": {"data": session.token_type or "Bearer"},
+                "session_id": {"data": session.session_id or ""},
+                "access_token": {"data": session.access_token},
+                "refresh_token": {"data": session.refresh_token},
+                "is_pkce": {"data": session.is_pkce}
+            }
+            async with await anyio.open_file(SESSION_FILE, 'w') as f:
+                await f.write(json.dumps(session_data))
+            
             return AuthResult(
                 status="success",
                 message="Successfully authenticated with TIDAL",
@@ -154,8 +180,9 @@ async def search_tracks(query: str, limit: int = 10) -> TrackList:
     try:
         # Perform search
         limit = min(max(1, limit), 50)  # Ensure limit is between 1-50
+        # Use lambda to properly pass keyword arguments
         results = await anyio.to_thread.run_sync(
-            session.search, query, models=[tidalapi.Track], limit=limit
+            lambda: session.search(query, models=[tidalapi.Track], limit=limit)
         )
 
         # Format results
@@ -194,7 +221,9 @@ async def get_favorites(limit: int = 20) -> TrackList:
         raise ToolError("Not authenticated. Please run the 'login' tool first.")
 
     try:
-        favorites = await anyio.to_thread.run_sync(session.user.favorites.tracks, limit)
+        favorites = await anyio.to_thread.run_sync(
+            lambda: session.user.favorites.tracks(limit=limit)
+        )
 
         tracks = []
         for track in favorites:
